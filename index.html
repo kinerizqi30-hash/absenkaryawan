@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absen PT Bina Market</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding-top: 30px; padding-bottom: 50px; }
+        .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .d-none { display: none !important; }
+        #kameraPreview { width: 100%; max-width: 400px; transform: scaleX(-1); border-radius: 8px; background: #000; }
+        .foto-absen { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            
+            <div class="card mb-4" id="kartuKaryawan">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4>Absen Karyawan - PT Bina Market</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center">Silakan masukkan nama, pilih divisi, izinkan lokasi, dan ambil foto untuk absen.</p>
+                    
+                    <div class="mb-3">
+                        <label for="namaUser" class="form-label fw-bold">Nama Karyawan:</label>
+                        <input type="text" class="form-control" id="namaUser" placeholder="Masukkan nama lengkap Anda">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="divisiUser" class="form-label fw-bold">Divisi / Bagian:</label>
+                        <select class="form-select" id="divisiUser">
+                            <option value="" selected disabled>-- Pilih Divisi Anda --</option>
+                            <option value="IT & Sistem Informasi">IT & Sistem Informasi</option>
+                            <option value="Marketing & Digital">Marketing & Digital</option>
+                            <option value="Sales / Penjualan">Sales / Penjualan</option>
+                            <option value="Human Resources (HR)">Human Resources (HR)</option>
+                            <option value="Finance & Accounting">Finance & Accounting</option>
+                            <option value="Operasional & Gudang">Operasional & Gudang</option>
+                        </select>
+                    </div>
+
+                    <hr>
+
+                    <h5>1. Ambil Lokasi GPS & Aktifkan Kamera</h5>
+                    <button class="btn btn-secondary w-100 mb-3" onclick="siapkanAbsen()">Mulai Deteksi & Kamera</button>
+                    
+                    <div id="statusLokasi" class="alert alert-info d-none" role="alert"></div>
+
+                    <div id="areaKamera" class="text-center d-none mb-3">
+                        <label class="form-label fw-bold d-block">Posisikan Wajah Anda:</label>
+                        <video id="kameraPreview" autoplay playsinline></video>
+                        <canvas id="canvasFoto" class="d-none"></canvas>
+                    </div>
+
+                    <hr>
+
+                    <h5>2. Kirim Absensi</h5>
+                    <button id="btnAbsen" class="btn btn-success w-100" onclick="kirimAbsen()" disabled>Kirim Absen Sekarang</button>
+                    
+                    <hr>
+                    
+                    <button class="btn btn-outline-primary w-100" onclick="cekRiwayatKaryawan()">🔍 Cek Riwayat Absen Saya</button>
+                    
+                    <div id="areaRiwayatKaryawan" class="mt-4 d-none">
+                        <h6 class="fw-bold text-secondary border-bottom pb-2">📋 Riwayat Absen Anda (<span id="namaTargetRiwayat"></span>)</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-hover align-middle mt-2" style="font-size: 0.9rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Foto</th>
+                                        <th>Divisi</th>
+                                        <th>Waktu</th>
+                                        <th>Koordinat</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelRiwayatKaryawan"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="card-footer text-center bg-light">
+                    <button class="btn btn-sm btn-outline-dark" onclick="loginAdmin()">🔒 Masuk Sebagai Admin</button>
+                </div>
+            </div>
+
+            <div class="card d-none" id="panelAdmin">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📊 Panel Dashboard Admin (Riwayat Semua Karyawan)</h5>
+                    <button class="btn btn-sm btn-danger" onclick="logoutAdmin()">Keluar Admin</button>
+                </div>
+                <div class="card-body">
+                    
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-sm btn-success" onclick="eksporExcel()">📥 Ekspor ke Excel (CSV)</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="hapusRiwayat()">🗑️ Hapus Semua Riwayat</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Foto</th>
+                                    <th>Nama Karyawan</th>
+                                    <th>Divisi</th>
+                                    <th>Waktu Absen</th>
+                                    <th>Koordinat GPS</th>
+                                    <th>Status Lokasi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelRiwayatAdmin"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========================================================
+    // SILAKAN GANTI ANGKA DI BAWAH INI DENGAN KOORDINAT KANTOR ANDA
+    // ========================================================
+    const LAT_KANTOR = -6.200000;  // Masukkan angka Latitude kantor
+    const LON_KANTOR = 106.816666; // Masukkan angka Longitude kantor
+    const TOLERANSI = 0.01;        // Radius toleransi jarak koordinat (~1 KM)
+    
+    // Password Akun Admin
+    const PASSWORD_ADMIN = "admin123";
+
+    let koordinatUser = null;
+    let statusArea = "";
+    let streamKamera = null;
+
+    // Fungsi Utama Mempersiapkan Absen (GPS + Kamera)
+    function siapkanAbsen() {
+        dapatkanLokasi();
+        aktifkanKamera();
+    }
+
+    // Mengambil lokasi GPS
+    function dapatkanLokasi() {
+        const statusDiv = document.getElementById("statusLokasi");
+        statusDiv.classList.remove("d-none");
+        statusDiv.className = "alert alert-warning";
+        statusDiv.innerHTML = "🔄 Sedang mendeteksi lokasi... Mohon izinkan akses GPS di browser.";
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(showPosition, showError);
+        } else {
+            statusDiv.className = "alert alert-danger";
+            statusDiv.innerHTML = "❌ Geolocation tidak didukung oleh browser ini.";
+        }
+    }
+
+    function showPosition(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        koordinatUser = { lat, lon };
+
+        const jarakLat = Math.abs(lat - LAT_KANTOR);
+        const jarakLon = Math.abs(lon - LON_KANTOR);
+
+        let alertClass = "alert-success";
+        if (jarakLat <= TOLERANSI && jarakLon <= TOLERANSI) {
+            statusArea = "Di Dalam Area Kantor";
+            alertClass = "alert-success";
+        } else {
+            statusArea = "Di Luar Area Kantor";
+            alertClass = "alert-warning";
+        }
+
+        const statusDiv = document.getElementById("statusLokasi");
+        statusDiv.className = `alert ${alertClass}`;
+        statusDiv.innerHTML = `
+            <strong>Lokasi Berhasil Dideteksi!</strong><br>
+            • Lat: ${lat.toFixed(6)} | Lon: ${lon.toFixed(6)}<br>
+            • Status: <strong>${statusArea}</strong>
+        `;
+
+        cekKesiapanTombol();
+    }
+
+    function showError(error) {
+        const statusDiv = document.getElementById("statusLokasi");
+        statusDiv.className = "alert alert-danger";
+        statusDiv.innerHTML = "❌ Gagal mendeteksi GPS. Pastikan izin lokasi aktif.";
+    }
+
+    // Mengaktifkan Kamera Depan
+    function aktifkanKamera() {
+        const areaKamera = document.getElementById("areaKamera");
+        const video = document.getElementById("kameraPreview");
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+            .then(function(stream) {
+                streamKamera = stream;
+                video.srcObject = stream;
+                areaKamera.classList.remove("d-none");
+                cekKesiapanTombol();
+            })
+            .catch(function(err) {
+                alert("❌ Gagal mengakses kamera. Mohon berikan izin akses kamera di browser Anda.");
+                console.log("Error Kamera: " + err);
+            });
+    }
+
+    // Validasi kesiapan GPS dan Kamera sebelum tombol Absen aktif
+    function cekKesiapanTombol() {
+        if (koordinatUser !== null && streamKamera !== null) {
+            document.getElementById("btnAbsen").disabled = false;
+        }
+    }
+
+    // Ambil Gambar & Kirim Data Absen
+    function kirimAbsen() {
+        const nama = document.getElementById("namaUser").value.trim();
+        const divisi = document.getElementById("divisiUser").value;
+
+        if (nama === "") {
+            alert("Nama tidak boleh kosong!");
+            return;
+        }
+        if (!divisi) {
+            alert("Silakan pilih divisi Anda terlebih dahulu!");
+            return;
+        }
+
+        const video = document.getElementById("kameraPreview");
+        const canvas = document.getElementById("canvasFoto");
+        const context = canvas.getContext("2d");
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const dataFotoBase64 = canvas.toDataURL("image/jpeg", 0.6); // Kompresi kualitas 60%
+        const waktuSekarang = new Date().toLocaleString('id-ID');
+        
+        const dataAbsenBaru = {
+            nama: nama,
+            divisi: divisi,
+            waktu: waktuSekarang,
+            koordinat: `${koordinatUser.lat.toFixed(6)}, ${koordinatUser.lon.toFixed(6)}`,
+            status: statusArea,
+            foto: dataFotoBase64 
+        };
+
+        let listAbsen = JSON.parse(localStorage.getItem("data_absen")) || [];
+        listAbsen.push(dataAbsenBaru);
+        localStorage.setItem("data_absen", JSON.stringify(listAbsen));
+
+        alert(`Absen berhasil untuk ${nama} (${divisi})!`);
+        
+        if (streamKamera) {
+            streamKamera.getTracks().forEach(track => track.stop());
+            streamKamera = null;
+        }
+
+        // Reset Tampilan Form
+        document.getElementById("namaUser").value = "";
+        document.getElementById("divisiUser").selectedIndex = 0;
+        document.getElementById("btnAbsen").disabled = true;
+        document.getElementById("statusLokasi").classList.add("d-none");
+        document.getElementById("areaKamera").classList.add("d-none");
+        document.getElementById("areaRiwayatKaryawan").classList.add("d-none");
+    }
+
+    // ==========================================
+    // FITUR: CEK RIWAYAT MANDIRI KARYAWAN
+    // ==========================================
+    function cekRiwayatKaryawan() {
+        const namaInput = prompt("Masukkan Nama Lengkap Anda untuk mengecek riwayat:");
+        if (namaInput === null || namaInput.trim() === "") return;
+
+        const namaTarget = namaInput.trim().toLowerCase();
+        let listAbsen = JSON.parse(localStorage.getItem("data_absen")) || [];
+
+        let hasilFilter = listAbsen.filter(absen => absen.nama.toLowerCase() === namaTarget);
+
+        const areaRiwayat = document.getElementById("areaRiwayatKaryawan");
+        const tbody = document.getElementById("tabelRiwayatKaryawan");
+        document.getElementById("namaTargetRiwayat").innerText = namaInput.trim();
+
+        tbody.innerHTML = "";
+
+        if (hasilFilter.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-2">Tidak ditemukan data absensi untuk nama ini.</td></tr>`;
+        } else {
+            [...hasilFilter].reverse().forEach(absen => {
+                const badgeClass = absen.status === "Di Dalam Area Kantor" ? "bg-success" : "bg-warning text-dark";
+                const gambarSrc = absen.foto ? absen.foto : "https://via.placeholder.com/80x60?text=No+Foto";
+                const divisiText = absen.divisi ? absen.divisi : "-";
+                
+                const row = `<tr>
+                    <td><img src="${gambarSrc}" class="foto-absen" onclick="lihatFotoBesar('${gambarSrc}')" style="width:50px; height:38px;"></td>
+                    <td><strong>${divisiText}</strong></td>
+                    <td>${absen.waktu}</td>
+                    <td><code>${absen.koordinat}</code></td>
+                    <td><span class="badge ${badgeClass}" style="font-size:0.75rem;">${absen.status}</span></td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        areaRiwayat.classList.remove("d-none");
+    }
+
+    // ==========================================
+    // LOGIKA PANEL DASHBOARD ADMIN
+    // ==========================================
+    function loginAdmin() {
+        const passwordInput = prompt("Masukkan Password Admin:");
+        if (passwordInput === PASSWORD_ADMIN) {
+            alert("Login Admin Berhasil!");
+            document.getElementById("panelAdmin").classList.remove("d-none");
+            document.getElementById("kartuKaryawan").classList.add("d-none");
+            tampilkanRiwayatAdmin();
+        } else if (passwordInput !== null) {
+            alert("❌ Password Salah!");
+        }
+    }
+
+    function logoutAdmin() {
+        document.getElementById("panelAdmin").classList.add("d-none");
+        document.getElementById("kartuKaryawan").classList.remove("d-none");
+    }
+
+    function tampilkanRiwayatAdmin() {
+        const tbody = document.getElementById("tabelRiwayatAdmin");
+        tbody.innerHTML = "";
+        
+        let listAbsen = JSON.parse(localStorage.getItem("data_absen")) || [];
+
+        if(listAbsen.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Belum ada data absensi karyawan.</td></tr>`;
+            return;
+        }
+
+        [...listAbsen].reverse().forEach(absen => {
+            const badgeClass = absen.status === "Di Dalam Area Kantor" ? "bg-success" : "bg-warning text-dark";
+            const gambarSrc = absen.foto ? absen.foto : "https://via.placeholder.com/80x60?text=No+Foto";
+            const divisiText = absen.divisi ? absen.divisi : "-";
+
+            const row = `<tr>
+                <td><img src="${gambarSrc}" class="foto-absen" onclick="lihatFotoBesar('${gambarSrc}')" title="Klik untuk memperbesar"></td>
+                <td class="fw-bold">${absen.nama}</td>
+                <td><span class="text-muted">${divisiText}</span></td>
+                <td>${absen.waktu}</td>
+                <td><code>${absen.koordinat}</code></td>
+                <td><span class="badge ${badgeClass}">${absen.status}</span></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function lihatFotoBesar(src) {
+        const popup = window.open();
+        popup.document.write(`<img src="${src}" style="max-width:100%; height:auto; display:block; margin:20px auto; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.3);">`);
+    }
+
+    function hapusRiwayat() {
+        if(confirm("⚠️ Apakah Anda yakin ingin menghapus SELURUH data?")) {
+            localStorage.removeItem("data_absen");
+            tampilkanRiwayatAdmin();
+        }
+    }
+
+    // Fitur: Cetak Excel Langsung Jadi Tabel Rapi Otomatis via Blob BOM
+    function eksporExcel() {
+        let listAbsen = JSON.parse(localStorage.getItem("data_absen")) || [];
+        if (listAbsen.length === 0) {
+            alert("Tidak ada data yang bisa diekspor.");
+            return;
+        }
+
+        // 1. Header Kolom CSV
+        let csvContent = "Nama,Divisi,Waktu Absen,Koordinat GPS,Status Lokasi\n";
+        
+        // 2. Isi Baris Data
+        listAbsen.forEach(absen => {
+            const divisiText = absen.divisi ? absen.divisi : "-";
+            csvContent += `"${absen.nama}","${divisiText}","${absen.waktu}","${absen.koordinat}","${absen.status}"\n`;
+        });
+
+        // 3. Gunakan Blob + BOM (\uFEFF) agar Microsoft Excel langsung otomatis merapikannya ke kolom
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        
+        // 4. Proses Unduh berkas laporan otomatis
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Rekap_Absen_BinaMarket_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
+</body>
+</html>
